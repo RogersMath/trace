@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#102a43">
+<title>Trace &amp; Write — letters for little hands</title>
+<style>
+  /* ----------  DESIGN TOKENS  ----------
+     Identity: "crayon on a chalk-slate". Deep slate ground, warm paper panel,
+     chunky rounded type, gold "ink" reward. Single signature = the trace-and-fill
+     letter channel. Everything else stays quiet. AAA contrast throughout. */
+  :root{
+    --slate:#102a43;     /* ground / heavy ink */
+    --slate-2:#1d3a57;   /* raised slate */
+    --paper:#fff7e8;     /* warm paper panel */
+    --paper-2:#ffefce;   /* paper highlight */
+    --gold:#f4a915;      /* reward ink */
+    --gold-deep:#b8740a; /* gold border on paper (AAA graphic) */
+    --grass:#2f8f4e;     /* success */
+    --road:#e8d9b8;      /* untraced channel fill */
+    --road-edge:#102a43; /* channel heavy border */
+    --ghost:#cdb892;     /* ghost letters */
+    --focus:#2bb3ff;     /* focus ring */
+    --text:#102a43;
+    --on-slate:#fff7e8;
+    --tap:56px;          /* AAA target */
+    font-size:clamp(16px,4.4vw,21px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;height:100dvh;overscroll-behavior:none}
+  body{
+    background:var(--slate);
+    color:var(--text);
+    font-family:"Arial Rounded MT Bold","Baloo 2",Verdana,system-ui,-apple-system,"Segoe UI",sans-serif;
+    display:flex;flex-direction:column;
+    -webkit-user-select:none;user-select:none;
+    touch-action:manipulation;
+  }
+  .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+      clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+  /* ----------  TOP BAR  ---------- */
+  header{
+    flex:0 0 auto;background:var(--slate);color:var(--on-slate);
+    padding:max(8px,env(safe-area-inset-top)) 12px 8px;
+    display:flex;flex-direction:column;gap:8px;
+  }
+  .topline{display:flex;align-items:center;gap:10px}
+  .emoji-badge{
+    font-size:clamp(34px,9vw,52px);line-height:1;flex:0 0 auto;
+    filter:drop-shadow(0 2px 0 rgba(0,0,0,.25));
+  }
+  .word-tray{display:flex;gap:6px;flex:1 1 auto;flex-wrap:nowrap;justify-content:center}
+  .slot{
+    flex:0 1 clamp(34px,11vw,58px);aspect-ratio:1/1.15;max-width:58px;
+    border-radius:12px;background:var(--slate-2);
+    display:flex;align-items:center;justify-content:center;
+    font-size:clamp(22px,7vw,40px);font-weight:800;
+    color:var(--ghost);border:2px dashed rgba(255,247,232,.28);
+    transition:transform .25s ease;
+  }
+  .slot.done{
+    background:var(--paper);color:var(--slate);border:2px solid var(--gold);
+    border-style:solid;
+  }
+  .slot.pop{transform:translateY(-4px) scale(1.08)}
+  .stars{
+    flex:0 0 auto;display:flex;align-items:center;gap:5px;
+    background:var(--slate-2);border-radius:999px;padding:6px 12px;
+    font-size:clamp(15px,4.4vw,19px);font-weight:800;color:var(--on-slate);
+    min-height:var(--tap);
+  }
+  .stars .s{font-size:1.25em}
+
+  /* ----------  STAGE  ---------- */
+  main{flex:1 1 auto;position:relative;background:
+        radial-gradient(120% 90% at 50% 0%,#16395a 0%,var(--slate) 70%)}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+  /* big friendly prompt that floats under the letter before they start */
+  .hint{
+    position:absolute;left:0;right:0;bottom:10px;text-align:center;
+    color:var(--on-slate);font-size:clamp(15px,4.4vw,20px);font-weight:700;
+    opacity:.9;pointer-events:none;padding:0 16px;
+  }
+
+  /* ----------  BOTTOM CONTROLS  ---------- */
+  footer{
+    flex:0 0 auto;background:var(--slate);
+    padding:10px 12px max(10px,env(safe-area-inset-bottom));
+    display:flex;gap:10px;
+  }
+  button{
+    font:inherit;font-weight:800;cursor:pointer;border:0;border-radius:16px;
+    min-height:var(--tap);padding:0 14px;display:inline-flex;align-items:center;
+    justify-content:center;gap:8px;transition:transform .08s ease;
+  }
+  button:active{transform:translateY(2px)}
+  .btn-help{flex:1 1 auto;background:var(--gold);color:var(--slate);
+            font-size:clamp(17px,5vw,21px)}
+  .btn-help .ico{font-size:1.3em}
+  .btn-icon{flex:0 0 auto;width:var(--tap);background:var(--slate-2);
+            color:var(--on-slate);font-size:1.3em}
+  .btn-skip{flex:0 0 auto;background:var(--slate-2);color:var(--on-slate);
+            font-size:clamp(15px,4.4vw,18px)}
+  :focus-visible{outline:4px solid var(--focus);outline-offset:3px;border-radius:18px}
+
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none!important}
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="topline">
+      <span class="emoji-badge" id="emoji" aria-hidden="true">🐱</span>
+      <div class="word-tray" id="tray" role="group" aria-label="Word you are writing"></div>
+      <div class="stars" aria-label="Stars earned"><span class="s" aria-hidden="true">⭐</span><span id="starCount">0</span></div>
+    </div>
+  </header>
+
+  <main>
+    <canvas id="cv" aria-hidden="true"></canvas>
+    <p class="hint" id="hint">Press the glowing dot to start</p>
+  </main>
+
+  <footer>
+    <button class="btn-help" id="help" type="button">
+      <span class="ico" aria-hidden="true">✋</span><span>Show me</span>
+    </button>
+    <button class="btn-icon" id="mute" type="button" aria-pressed="false" aria-label="Turn sound off">
+      <span aria-hidden="true">🔊</span>
+    </button>
+    <button class="btn-skip" id="skip" type="button" aria-label="Skip to a new word">
+      <span aria-hidden="true">⏭️</span><span>New word</span>
+    </button>
+  </footer>
+
+  <!-- polite running commentary for screen readers -->
+  <p class="sr" id="live" role="status" aria-live="polite"></p>
+
+<script>
+"use strict";
+/* ============================================================
+   TRACE & WRITE  — vanilla, zero-dependency, self-contained.
+   Mechanic: verification, not recognition. The game already knows the
+   target letter, so we score how well the child's drag follows a known
+   stroke path. A leading dot they "chase" unifies stroke ORDER, DIRECTION
+   and COVERAGE in one forgiving mechanism. Engine params below were
+   empirically tuned so valid traces (incl. shaky hands & slow drags) pass
+   while teleport / reverse / scribble are rejected.
+   ============================================================ */
+
+/* ----------  LETTER DATA  (author space: 0..100, y down) ----------
+   Each letter = array of strokes; each stroke = ordered polyline.
+   Order of strokes = stroke order. Order of points = direction.
+   Edit freely — this is the content layer. Vertical stems start at top
+   ("start at the top, pull down") to match how writing is taught. */
+const RAW = {
+  A:[[[50,12],[15,88]],[[50,12],[85,88]],[[27,58],[73,58]]],
+  B:[[[27,12],[27,88]],[[27,12],[55,14],[68,28],[55,46],[27,49]],[[27,49],[60,52],[75,68],[58,86],[27,88]]],
+  C:[[[80,26],[60,13],[36,16],[20,38],[20,62],[36,84],[60,87],[80,74]]],
+  D:[[[27,12],[27,88]],[[27,12],[54,14],[76,36],[76,64],[54,86],[27,88]]],
+  E:[[[27,12],[27,88]],[[27,12],[75,12]],[[27,50],[66,50]],[[27,88],[75,88]]],
+  F:[[[27,12],[27,88]],[[27,12],[75,12]],[[27,50],[66,50]]],
+  G:[[[80,26],[60,13],[36,16],[20,38],[20,62],[36,84],[60,87],[80,74],[80,56],[60,56]]],
+  H:[[[26,12],[26,88]],[[74,12],[74,88]],[[26,50],[74,50]]],
+  I:[[[32,12],[68,12]],[[50,12],[50,88]],[[32,88],[68,88]]],
+  J:[[[66,12],[66,70],[58,84],[42,86],[30,72]]],
+  K:[[[27,12],[27,88]],[[68,14],[29,52]],[[29,52],[73,88]]],
+  L:[[[27,12],[27,88]],[[27,88],[73,88]]],
+  M:[[[20,12],[20,88]],[[20,12],[50,58],[80,12]],[[80,12],[80,88]]],
+  N:[[[24,12],[24,88]],[[24,12],[76,88]],[[76,12],[76,88]]],
+  O:[[[50,11],[24,28],[18,50],[24,72],[50,89],[76,72],[82,50],[76,28],[50,11]]],
+  P:[[[27,12],[27,88]],[[27,12],[57,14],[72,30],[57,48],[27,50]]],
+  Q:[[[50,11],[24,28],[18,50],[24,72],[50,89],[76,72],[82,50],[76,28],[50,11]],[[58,66],[84,90]]],
+  R:[[[27,12],[27,88]],[[27,12],[57,14],[72,30],[57,48],[27,50]],[[45,50],[74,88]]],
+  S:[[[76,26],[55,13],[34,16],[26,33],[40,49],[60,55],[72,72],[58,86],[36,87],[22,74]]],
+  T:[[[20,12],[80,12]],[[50,12],[50,88]]],
+  U:[[[26,12],[26,64],[38,84],[62,84],[74,64],[74,12]]],
+  V:[[[22,12],[50,88],[78,12]]],
+  W:[[[15,12],[33,88],[50,40],[67,88],[85,12]]],
+  X:[[[24,12],[76,88]],[[76,12],[24,88]]],
+  Y:[[[24,12],[50,52]],[[76,12],[50,52]],[[50,52],[50,88]]],
+  Z:[[[24,12],[76,12]],[[76,12],[24,88]],[[24,88],[76,88]]]
+};
+
+/* ----------  WORD LIST  (emoji -> WORD). Any length works; kept 3-letter
+   for a tidy mobile tray. Data-driven — extend or reorder freely. ---------- */
+const WORDS = [
+  ["🐱","CAT"],["🐶","DOG"],["🐮","COW"],["🐷","PIG"],["🦊","FOX"],
+  ["🐝","BEE"],["🐜","ANT"],["🦇","BAT"],["☀️","SUN"],["🎩","HAT"]
+];
+
+/* ----------  ENGINE PARAMETERS (normalized 0..1 of the letter box) ----------
+   Verified by simulation. Tolerance widens with misses (frustration floor). */
+const STEP   = 0.022;          // resample spacing
+const LOOK   = 10;             // forward sample window (anti-teleport)
+const TIERS  = [               // {cap,leash} — looser each retry
+  {cap:0.090, leash:0.150},
+  {cap:0.110, leash:0.180},
+  {cap:0.135, leash:0.215}
+];
+const LEAD   = 4;              // how many samples ahead the chase-dot sits
+const MISS_WIDEN = 2;          // misses before tolerance widens one tier
+const MISS_DEMO  = 3;          // misses before the demo auto-replays
+
+/* ----------  geometry helpers ---------- */
+function resample(poly, step){
+  const out=[{x:poly[0][0]/100,y:poly[0][1]/100}];
+  let prev=out[0];
+  for(let i=1;i<poly.length;i++){
+    let a=prev, b={x:poly[i][0]/100,y:poly[i][1]/100};
+    let d=Math.hypot(b.x-a.x,b.y-a.y);
+    while(d>=step){
+      const t=step/d, nx=a.x+(b.x-a.x)*t, ny=a.y+(b.y-a.y)*t;
+      const p={x:nx,y:ny}; out.push(p); a=p; d=Math.hypot(b.x-a.x,b.y-a.y); prev=p;
+    }
+    prev=b;
+  }
+  const lp={x:poly[poly.length-1][0]/100,y:poly[poly.length-1][1]/100};
+  if(Math.hypot(out[out.length-1].x-lp.x,out[out.length-1].y-lp.y)>1e-6) out.push(lp);
+  return out;
+}
+// build sampled letters once
+const LETTERS={};
+for(const k in RAW) LETTERS[k]=RAW[k].map(s=>resample(s,STEP));
+
+/* advance: returns {progress, derail}. Walks CONTIGUOUSLY forward — you can only
+   reach a sample if every sample up to it is under your finger. This is what
+   prevents corner-cutting on sharp letters (W,V,M,K,X...) and scribble-passing,
+   while still allowing shaky hands and slow drags. Verified across all 26 letters. */
+function advance(samples, progress, P, cap, leash){
+  let best=progress, i=progress+1;
+  const end=Math.min(samples.length-1, progress+LOOK);
+  while(i<=end && Math.hypot(samples[i].x-P.x, samples[i].y-P.y)<=cap){ best=i; i++; }
+  if(best>progress) return {progress:best, derail:false};
+  const cur=samples[progress];
+  if(Math.hypot(cur.x-P.x, cur.y-P.y)<=leash) return {progress, derail:false};
+  return {progress:0, derail:true};
+}
+
+/* ============================================================
+   AUDIO — tiny WebAudio synth (reuse of the Clean Your Room approach).
+   Every sound has a visual counterpart; fully muteable.
+   ============================================================ */
+let AC=null, masterGain=null;
+let muted = localStorage.getItem('traceMute')==='1';
+function audioInit(){
+  if(AC) return;
+  try{
+    AC=new (window.AudioContext||window.webkitAudioContext)();
+    masterGain=AC.createGain();
+    masterGain.gain.value = muted?0:0.9;
+    masterGain.connect(AC.destination);
+  }catch(e){ AC=null; }
+}
+function tone(freq,dur,when,type,peak){
+  if(!AC) return;
+  const t0=AC.currentTime+(when||0);
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type=type||'sine'; o.frequency.value=freq;
+  g.gain.setValueAtTime(0,t0);
+  g.gain.linearRampToValueAtTime(peak||0.5,t0+0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  o.connect(g); g.connect(masterGain);
+  o.start(t0); o.stop(t0+dur+0.02);
+}
+const S={
+  tick(){ tone(660,0.05,0,'triangle',0.18); },
+  stroke(){ tone(523.25,0.10,0,'sine',0.4); tone(783.99,0.16,0.05,'sine',0.35); },
+  letter(){ [523.25,659.25,783.99].forEach((f,i)=>tone(f,0.22,i*0.06,'sine',0.4)); },
+  word(){ [523.25,659.25,783.99,1046.5,1318.5].forEach((f,i)=>tone(f,0.34,i*0.085,'triangle',0.4)); },
+  retry(){ tone(392,0.12,0,'sine',0.28); tone(330,0.16,0.07,'sine',0.24); }, // soft, never harsh
+  tap(){ tone(440,0.05,0,'square',0.12); }
+};
+
+/* ============================================================
+   STATE
+   ============================================================ */
+const RM = matchMedia('(prefers-reduced-motion:reduce)').matches;
+let stars = parseInt(localStorage.getItem('traceStars')||'0',10) || 0;
+let order = shuffle([...WORDS.keys()]);
+let orderPos = 0;
+
+let word="", emoji="", letterIdx=0, strokeIdx=0;
+let samples=[], progress=0, tier=0, misses=0;
+let mode="idle";          // 'demo' | 'ready' | 'trace' | 'between'
+let tracing=false, pointerId=null;
+let wordAssisted=false;
+let lockedStrokes=[];     // completed strokes of the CURRENT letter (for display)
+let particles=[];
+let demoT=0, demoDur=0;   // demo animation timeline
+let pulse=0;              // global pulse phase
+let helpAnim=null;        // active "show me" auto-trace timeline
+
+/* ----------  DOM ---------- */
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+const emojiEl=document.getElementById('emoji');
+const trayEl=document.getElementById('tray');
+const starEl=document.getElementById('starCount');
+const liveEl=document.getElementById('live');
+const hintEl=document.getElementById('hint');
+const helpBtn=document.getElementById('help');
+const muteBtn=document.getElementById('mute');
+const skipBtn=document.getElementById('skip');
+
+starEl.textContent=stars;
+applyMuteUI();
+
+/* ----------  canvas sizing (hi-dpi) ----------
+   fit is rAF-batched and idempotent: this prevents the "ResizeObserver loop
+   completed with undelivered notifications" warning (which fires when a resize
+   callback synchronously changes layout) and skips frames before layout exists. */
+let BOX={x:0,y:0,w:0};
+function fit(){
+  const r=cv.getBoundingClientRect();
+  if(r.width<2 || r.height<2) return;                 // not laid out yet
+  const dpr=Math.min(window.devicePixelRatio||1, 2.5);
+  const W=Math.round(r.width*dpr), H=Math.round(r.height*dpr);
+  if(cv.width!==W)  cv.width=W;                        // only touch when changed
+  if(cv.height!==H) cv.height=H;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const pad=Math.min(r.width,r.height)*0.10;
+  const size=Math.min(r.width, r.height)-pad*2;
+  BOX={ x:(r.width-size)/2, y:(r.height-size)/2, w:size };
+}
+let fitScheduled=false;
+function scheduleFit(){ if(fitScheduled) return; fitScheduled=true;
+  requestAnimationFrame(()=>{ fitScheduled=false; fit(); }); }
+new ResizeObserver(scheduleFit).observe(cv);
+window.addEventListener('resize', scheduleFit);
+fit();
+
+const N2X=nx=>BOX.x+nx*BOX.w;
+const N2Y=ny=>BOX.y+ny*BOX.w;
+const PX2N=(px,py)=>({x:(px-BOX.x)/BOX.w, y:(py-BOX.y)/BOX.w});
+const road = ()=> BOX.w*0.15;            // visual channel width
+const capPx= ()=> TIERS[tier].cap*BOX.w; // (for reference)
+
+/* ============================================================
+   FLOW
+   ============================================================ */
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+function loadWord(){
+  const idx=order[orderPos % order.length];
+  [emoji,word]=WORDS[idx];
+  emojiEl.textContent=emoji;
+  letterIdx=0; wordAssisted=false;
+  buildTray();
+  startLetter();
+}
+function buildTray(){
+  trayEl.innerHTML='';
+  for(let i=0;i<word.length;i++){
+    const s=document.createElement('span');
+    s.className='slot'; s.id='slot'+i;
+    s.textContent=word[i];
+    s.setAttribute('aria-hidden','true');
+    trayEl.appendChild(s);
+  }
+}
+function startLetter(){
+  const ch=word[letterIdx];
+  lockedStrokes=[];
+  strokeIdx=0; misses=0; tier=0;
+  startStroke(true);
+  say(`Trace the letter ${ch}. ${spokenWord()}`);
+}
+function startStroke(withDemo){
+  const ch=word[letterIdx];
+  samples=LETTERS[ch][strokeIdx];
+  progress=0;
+  if(withDemo){ beginDemo(); } else { mode='ready'; setHint('Press the glowing dot to start'); }
+}
+function beginDemo(){
+  mode='demo'; demoT=0;
+  demoDur = RM ? 1 : Math.max(700, samples.length*16); // ms; instant-ish if reduced motion
+  setHint('Watch, then your turn');
+}
+
+function strokeComplete(assisted){
+  lockedStrokes.push(samples);
+  S.stroke();
+  spawn(N2X(samples[samples.length-1].x), N2Y(samples[samples.length-1].y), 8, 'var');
+  strokeIdx++;
+  const ch=word[letterIdx];
+  if(strokeIdx>=LETTERS[ch].length){ letterComplete(assisted); }
+  else { misses=0; tier=0; startStroke(true); say(`Good. Next part of ${ch}.`); }
+}
+function letterComplete(assisted){
+  if(assisted) wordAssisted=true;
+  S.letter();
+  const slot=document.getElementById('slot'+letterIdx);
+  if(slot){ slot.classList.add('done'); slot.classList.add('pop');
+            setTimeout(()=>slot.classList.remove('pop'),260); }
+  spawnBurst(N2X(0.5),N2Y(0.5), 'var', 18);
+  letterIdx++;
+  if(letterIdx>=word.length){ wordComplete(); }
+  else {
+    lockedStrokes=[];           // clear last letter's ink so it doesn't draw over the next box
+    mode='between';
+    say(`${word[letterIdx-1]} done. ${spokenWord()}`);
+    setTimeout(startLetter, RM?250:700);
+  }
+}
+function wordComplete(){
+  S.word();
+  stars++; starEl.textContent=stars;
+  localStorage.setItem('traceStars', stars);
+  mode='between';
+  emojiEl.animate?.(
+    [{transform:'scale(1)'},{transform:'scale(1.35)'},{transform:'scale(1)'}],
+    {duration:RM?1:700,easing:'ease-out'});
+  spawnBurst(N2X(0.5),N2Y(0.5), wordAssisted?'silver':'gold', RM?14:44);
+  setHint(`You wrote ${word}! ${wordAssisted?'⭐ silver star':'🌟 gold star'}`);
+  say(`You wrote ${word.split('').join(' ')}! You have ${stars} ${stars===1?'star':'stars'}.`);
+  setTimeout(()=>{ orderPos++; if(orderPos>=order.length){order=shuffle(order);orderPos=0;} loadWord(); },
+             RM?900:2400);
+}
+
+/* ----------  retries / assist ---------- */
+function derail(){
+  misses++;
+  progress=0; tracing=false; pointerId=null;
+  S.retry();
+  setHint('Oops — start again at the dot');
+  if(misses>=MISS_WIDEN && tier<TIERS.length-1) tier++;
+  if(misses>=MISS_DEMO){ beginDemo(); }
+  else { mode='ready'; }
+}
+function showMe(){               // single-pointer alternative = AAA escape hatch
+  audioInit();
+  if(mode==='between'||helpAnim) return;
+  tracing=false; pointerId=null;
+  helpAnim={t:0, dur:RM?1:Math.max(500,samples.length*14)};
+  mode='help';
+  setHint('Watch me write it');
+  say('Showing you the letter.');
+}
+
+/* ============================================================
+   POINTER (the carve-out gesture: path-based, by nature)
+   ============================================================ */
+cv.addEventListener('pointerdown', e=>{
+  audioInit();
+  if(mode==='demo'){ mode='ready'; }                 // tapping skips the demo
+  if(mode!=='ready' && mode!=='trace') return;
+  const p=pos(e), n=PX2N(p.x,p.y);
+  const start=samples[0];
+  const startR=TIERS[tier].leash*1.3;
+  if(Math.hypot(start.x-n.x, start.y-n.y) <= startR){
+    tracing=true; pointerId=e.pointerId; mode='trace';
+    cv.setPointerCapture(e.pointerId);
+    setHint('Keep your finger on the path');
+  }
+}, {passive:true});
+
+cv.addEventListener('pointermove', e=>{
+  if(!tracing || e.pointerId!==pointerId) return;
+  const p=pos(e), n=PX2N(p.x,p.y);
+  const before=progress;
+  const r=advance(samples, progress, n, TIERS[tier].cap, TIERS[tier].leash);
+  if(r.derail){ derail(); return; }
+  progress=r.progress;
+  if(progress>before) S.tick();
+  if(progress>=samples.length-1){ tracing=false; cv.releasePointerCapture(pointerId); pointerId=null; strokeComplete(false); }
+}, {passive:true});
+
+function endPointer(e){
+  if(e.pointerId!==pointerId) return;
+  if(mode==='trace' && progress<samples.length-1){ derail(); }
+  tracing=false; pointerId=null;
+}
+cv.addEventListener('pointerup', endPointer, {passive:true});
+cv.addEventListener('pointercancel', endPointer, {passive:true});
+function pos(e){ const r=cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
+
+/* ============================================================
+   PARTICLES
+   ============================================================ */
+const COL={gold:'#f4a915', silver:'#dfe6ee', grass:'#39b765', var:'#f4a915'};
+function spawn(x,y,n,c){ if(RM)return; for(let i=0;i<n;i++){const a=Math.random()*6.28,s=2+Math.random()*4;
+  particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:1,c:COL[c]||c});}}
+function spawnBurst(x,y,c,n){ if(RM){return;} for(let i=0;i<n;i++){const a=Math.random()*6.28,s=3+Math.random()*7;
+  particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-3,life:1.3,c:COL[c]||c});}}
+
+/* ============================================================
+   RENDER LOOP
+   ============================================================ */
+let last=performance.now();
+function frame(now){
+  requestAnimationFrame(frame);            // keep the loop alive no matter what
+  try{
+    const dt=Math.min(40, now-last); last=now;
+    pulse += dt/1000;
+
+    // advance demo
+    if(mode==='demo'){
+      demoT+=dt;
+      if(demoT>=demoDur){ mode='ready'; setHint('Now your turn — press the dot'); }
+    }
+    // advance "show me"
+    if(mode==='help' && helpAnim){
+      helpAnim.t+=dt;
+      const k=Math.min(1, helpAnim.t/Math.max(1,helpAnim.dur));
+      progress=Math.floor(k*(samples.length-1));
+      if(k>=1){ helpAnim=null; progress=samples.length-1; strokeComplete(true); }
+    }
+
+    draw();
+    // particles
+    for(let i=particles.length-1;i>=0;i--){const p=particles[i];
+      p.x+=p.vx; p.y+=p.vy; p.vy+=0.35; p.life-=dt/1000;
+      if(p.life<=0) particles.splice(i,1);}
+  }catch(err){ /* never let a single frame freeze the game */ }
+}
+requestAnimationFrame(frame);
+
+function strokePath(s, from, to){
+  ctx.beginPath();
+  ctx.moveTo(N2X(s[from].x), N2Y(s[from].y));
+  for(let i=from+1;i<=to;i++) ctx.lineTo(N2X(s[i].x), N2Y(s[i].y));
+}
+function draw(){
+  const r=cv.getBoundingClientRect();
+  ctx.clearRect(0,0,r.width,r.height);
+  const ch=word[letterIdx];
+  if(!ch || !BOX.w || !samples || !samples.length){ drawParticles(); return; }
+  const allStrokes=LETTERS[ch];
+  const w=road();
+
+  ctx.lineCap='round'; ctx.lineJoin='round';
+
+  // 1) GHOST of the whole letter (every stroke) — heavy hollow outline
+  for(let si=0; si<allStrokes.length; si++){
+    const done = si<strokeIdx;
+    const active = si===strokeIdx && (mode!=='between');
+    if(done) continue; // drawn solid below
+    strokePath(allStrokes[si],0,allStrokes[si].length-1);
+    ctx.lineWidth=w;          ctx.strokeStyle='rgba(16,42,67,0.18)'; ctx.stroke(); // soft fill
+    ctx.lineWidth=w;          ctx.strokeStyle = active ? 'rgba(255,247,232,0.85)' : 'rgba(205,184,146,0.55)';
+    ctx.save(); ctx.lineWidth=2.5; ctx.stroke(); ctx.restore();
+    // heavy double border for the channel
+    ctx.lineWidth=w;  ctx.strokeStyle='transparent';
+  }
+
+  // 2) Completed strokes of THIS letter — solid "ink"
+  ctx.strokeStyle=getCSS('--gold');
+  for(const s of lockedStrokes){
+    strokePath(s,0,s.length-1); ctx.lineWidth=w*0.78; ctx.strokeStyle=getCSS('--gold'); ctx.stroke();
+    strokePath(s,0,s.length-1); ctx.lineWidth=w*0.78; ctx.strokeStyle=getCSS('--gold-deep');
+    ctx.save(); ctx.lineWidth=3; ctx.stroke(); ctx.restore();
+  }
+
+  // 3) Active stroke: channel + filled trail
+  if((mode==='ready'||mode==='trace'||mode==='demo'||mode==='help') && samples.length){
+    // channel walls
+    strokePath(samples,0,samples.length-1);
+    ctx.lineWidth=w;            ctx.strokeStyle=getCSS('--road'); ctx.stroke();
+    // dashed centre guide
+    ctx.save(); ctx.setLineDash([2, w*0.6]); ctx.lineWidth=3;
+    ctx.strokeStyle='rgba(16,42,67,0.35)'; strokePath(samples,0,samples.length-1); ctx.stroke(); ctx.restore();
+
+    // filled trail (what they've drawn)
+    if(progress>0){
+      strokePath(samples,0,progress);
+      ctx.lineWidth=w*0.82; ctx.strokeStyle=getCSS('--gold'); ctx.stroke();
+    }
+
+    // start dot + finger (ready), or chase dot (trace/help/demo)
+    const pr = (mode==='demo') ? Math.floor((demoT/Math.max(1,demoDur))*(samples.length-1)) : progress;
+    const safePr = Math.max(0, Math.min(samples.length-1, pr));
+    const lead = Math.min(samples.length-1, safePr + (mode==='ready'?0:LEAD));
+    const idx = (mode==='demo') ? safePr : lead;
+    const lp = samples[idx];
+    if(lp) drawDot(N2X(lp.x), N2Y(lp.y), w*0.5, mode);
+  }
+
+  drawParticles();
+}
+function drawDot(x,y,baseR,m){
+  const ph=(Math.sin(pulse*5)*0.5+0.5);
+  const R = RM ? baseR : baseR*(0.85+ph*0.5);
+  // glow
+  const g=ctx.createRadialGradient(x,y,0,x,y,R*2.4);
+  g.addColorStop(0,'rgba(244,169,21,0.9)');
+  g.addColorStop(0.5,'rgba(244,169,21,0.35)');
+  g.addColorStop(1,'rgba(244,169,21,0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,R*2.4,0,6.2832); ctx.fill();
+  // core
+  ctx.fillStyle='#fff7e8'; ctx.beginPath(); ctx.arc(x,y,R*0.7,0,6.2832); ctx.fill();
+  ctx.lineWidth=3; ctx.strokeStyle=getCSS('--gold-deep'); ctx.stroke();
+  // finger invitation only when waiting to start
+  if(m==='ready'){
+    ctx.font=`${Math.round(baseR*2.0)}px serif`;
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    const bob = RM?0:Math.sin(pulse*4)*4;
+    ctx.fillText('👆', x, y+R*0.6+bob);
+  }
+}
+function drawParticles(){
+  for(const p of particles){
+    ctx.globalAlpha=Math.max(0,Math.min(1,p.life));
+    ctx.fillStyle=p.c; ctx.beginPath(); ctx.arc(p.x,p.y,5,0,6.2832); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+
+/* ============================================================
+   UI plumbing
+   ============================================================ */
+function getCSS(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function setHint(t){ hintEl.textContent=t; }
+function say(t){ liveEl.textContent=''; setTimeout(()=>liveEl.textContent=t, 30); }
+function spokenWord(){
+  const got=word.slice(0,letterIdx).split('').join(' ');
+  const left=word.length-letterIdx;
+  return got? `So far: ${got}. ${left} to go.` : `${word.length} letters.`;
+}
+
+helpBtn.addEventListener('click', ()=>{ S.tap(); showMe(); });
+skipBtn.addEventListener('click', ()=>{ audioInit(); S.tap();
+  orderPos++; if(orderPos>=order.length){order=shuffle(order);orderPos=0;} loadWord(); });
+muteBtn.addEventListener('click', ()=>{
+  muted=!muted; localStorage.setItem('traceMute', muted?'1':'0');
+  audioInit(); if(masterGain) masterGain.gain.value=muted?0:0.9;
+  applyMuteUI(); if(!muted) S.tap();
+});
+function applyMuteUI(){
+  muteBtn.setAttribute('aria-pressed', muted?'true':'false');
+  muteBtn.setAttribute('aria-label', muted?'Turn sound on':'Turn sound off');
+  muteBtn.firstElementChild.textContent = muted?'🔇':'🔊';
+}
+
+/* keyboard: let the help button be reached and used; the trace gesture itself
+   is the inherent carve-out, but "Show me" gives a single-input path to finish
+   any stroke/letter/word without tracing. */
+document.addEventListener('keydown', e=>{
+  if(e.key==='Enter' && document.activeElement===cv){ showMe(); }
+});
+
+/* go */
+loadWord();
+</script>
+</body>
+</html>
